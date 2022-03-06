@@ -1,6 +1,6 @@
 //===================================================================================
 // Project      : aes (advanced encryption standard)
-// File name    : key_exp_top.sv 
+// File name    : g_function.sv 
 // Designer     : Albin Gomes
 // Device       : 
 // Description  :
@@ -8,33 +8,13 @@
 // Version      :
 //===================================================================================
 
-module key_exp_top (
-  // Input
+module g_function (
   input           clk,
   input           reset_n,
-  input [4:0]     round,
-  input [127:0]   key,
-  // Output
-  output [127:0]  key_out
+  input           enable,
+  input   [31:0]  data_in,
+  output  [31:0]  data_out
 );
-
-//-----------------------------------------------------------------------------------
-// Nets and Regs
-//-----------------------------------------------------------------------------------
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
