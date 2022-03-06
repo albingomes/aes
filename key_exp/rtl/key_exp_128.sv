@@ -38,7 +38,7 @@ localparam   s2      = 4'b00110;
 localparam   s3      = 4'b01001;
 localparam   s4      = 4'b01010;
 localparam   s5      = 4'b01100;
-localparam   s6      = 4'01111;
+localparam   s6      = 4'b01111;
 localparam   s7      = 4'b10001;
 
 //-----------------------------------------------------------------------------------
