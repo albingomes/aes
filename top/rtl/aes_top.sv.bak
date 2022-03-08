@@ -14,6 +14,7 @@ module aes_top #(
   // Input
   input         clk,
   input         reset_n,
+  input         enable,
   input [255:0] key,        // shared for all key size use, for example bits [127:0] used for key size 128 bits
   input [127:0] plaintext,
   // Output
@@ -26,6 +27,7 @@ module aes_top #(
 
 logic [255:0] key_out; // shared for all key sizes
 logic [4:0]   round;
+logic         key_exp_enable;
 
 
 //-----------------------------------------------------------------------------------
@@ -36,11 +38,13 @@ generate
   case (key_size)
     128: begin
         key_exp_128_0 (
-          .clk        (clk), 
-          .reset_n    (reset_n),
-          .round      (round),
-          .key        (key[127:0]),
-          .key_out    (key_out[127:0])
+          .clk            (clk), 
+          .reset_n        (reset_n),
+          .enable         (key_exp_enable),
+          .round          (round),
+          .key            (key[127:0]),
+          .key_out        (key_out[127:0]),
+          .o_state_error  ()
         );
       end 
     192:

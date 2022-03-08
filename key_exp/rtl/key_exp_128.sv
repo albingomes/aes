@@ -13,33 +13,33 @@ module key_exp_top (
   input             clk,
   input             reset_n,
   input             enable,
-  input             key_ack,       //'1' when key is accepted by aes top and indicates key expansion should proceed to next round
-  input   [127:0]   key,
+  input             key_ack,       // '1' when key is accepted by aes top and indicates key expansion should proceed to next round
+  input   [127:0]   key,            
   // Output
-  output            key_ready,     //'1' when key is ready 
-  output  [3:0]     key_transform, //key transform 0 -> 10
-  output  [127:0]   key_out
+  output            key_ready,     // '1' when key is ready 
+  output  [3:0]     key_transform, // indicating round #
+  output  [127:0]   key_out,
+  output            o_state_error  // FSM error detection
 );
 
 //-----------------------------------------------------------------------------------
 // Nets, Regs and states
 //-----------------------------------------------------------------------------------
 
+logic                   enable_reg;
 logic       [3:0][31:0] key_reg; // 4 array elements of 32 bits each, holds key of each round
 logic                   g_enable;
 logic                   g_done;
 logic       [31:0]      g_data;
 logic       [3:0]       present_state, next_state;
-// FSM state encoding: hard encoded
-localparam   s_idle  = 4'b00000;
-localparam   s0      = 4'b00011;
-localparam   s1      = 4'b00101;
-localparam   s2      = 4'b00110;
-localparam   s3      = 4'b01001;
-localparam   s4      = 4'b01010;
-localparam   s5      = 4'b01100;
-localparam   s6      = 4'b01111;
-localparam   s7      = 4'b10001;
+// FSM encoding: hard encoded
+localparam   s0_key_load        = 4'b0000001;
+localparam   s1_g_function      = 4'b0000010;
+localparam   s2_word0_complete  = 4'b0000100;
+localparam   s3_word1_complete  = 4'b0001000;
+localparam   s4_word2_complete  = 4'b0010000;
+localparam   s5_word3_complete  = 4'b0100000;
+localparam   s6_wait_for_ack    = 4'b1000000;
 
 //-----------------------------------------------------------------------------------
 // Instantiations
@@ -58,73 +58,83 @@ g_function g_function_0(
 //-----------------------------------------------------------------------------------
 
 assign key_out = {key_reg[3],key_reg[2],key_reg[1],key_reg[0]};
-
+assign state_error = (  present_state == s0_key_load        || 
+                        present_state == s1_g_function      || 
+                        present_state == s2_word0_complete  || 
+                        present_state == s3_word1_complete  ||
+                        present_state == s4_word2_complete  ||
+                        present_state == s5_word3_complete  ||
+                        present_state == s6_wait_for_ack    || ) ? 0:1;
+assign o_state_error = state_error;
 //-----------------------------------------------------------------------------------
 // Processes
 //-----------------------------------------------------------------------------------
+
+//--------------
+// Enable edge detect
+//--------------
+always_ff@(posedge clk, negedge reset_n) begin
+  if(reset_n == 0) begin
+    enable_reg <= 0;
+  end
+  else begin
+    enable_reg <= enable;
+  end
+end
 
 //--------------
 //State Machine
 //--------------
 
 // Async next state logic
-always_comb@() begin
+always_comb begin
   case(present_state)
-    s0: 
+    s0_key_load:
     begin
-      if(enable == 1) begin
-        if(key_ack == 1) begin
-          next_state = s1;
-        end  
+      if(enable == 1 && enable_reg == 0) begin
+        next_state = s1_g_function;
+      end
+      else begin
+        next_state = s0_key_load;
+      end
+    end 
+    s1_g_function:
+    begin
+      if(g_done == 1) begin
+        next_state = s2_word0_complete;
+      end
+      else begin
+        next_state = s1_g_function;
+      end 
+    end
+    s2_word0_complete:
+    begin
+      next_state = s3_word1_complete;
+    end:
+    s3_word1_complete
+    begin
+      next_state = s4_word2_complete;
+    end
+    s4_word2_complete:
+    begin
+      next_state = s5_word3_complete;
+    end
+    s5_word3_complete:
+    begin
+      next_state = s6_wait_for_ack;
+    end
+    s6_wait_for_ack:
+    begin
+      if (key_ack == 1) begin
+        if(key_transform == 10) begin
+          next_state = s0_key_load;
+        end
         else begin
-          next_state = s0;
-        end
+          next_state = s1_g_function;
+        end  
       end
       else begin
-        next_state = s0;
-      end
-    end
-    s1:
-    begin
-      next_state  = s2;
-    end
-    s2:
-    begin
-      if (g_done == 1) begin
-        next_state = s3;
-      end
-      else begin
-        next_state = s2;
-      end
-    end
-    s3:
-    begin
-      next_state  = s4;
-    end
-    s4:
-    begin
-     next_state = s5;
-    end
-    s5:
-    begin
-      next_state = s6;
-    end
-    s6:
-    begin
-      next_state = s7;
-    end
-    s7:
-    begin
-      if(key_ack == 1) begin
-        if(transform >= 10) begin
-          next_state = s_idle;
-        end
-        else
-          next_state = s1;
-        end
-      end
-      else begin
-        next_state = s7;
+        next_state = s6_wait_for_ack;
       end
     end
     default:
@@ -146,66 +156,52 @@ always_ff@(posedge clk, negedge reset_n) begin
   key_ready     <= 0;
  end
  else begin
-  present_state <= next_state;
+  present_state <= (state_error == 1) ? s0_key_load:next_state;
   case(present_state)
-    s_idle:
+    s0_key_load:
     begin
-      key_reg[0]    <= 0;
-      key_reg[1]    <= 0;
-      key_reg[2]    <= 0;
-      key_reg[3]    <= 0;
+      key_reg[0]    <= key[31:0];
+      key_reg[1]    <= key[63:32];
+      key_reg[2]    <= key[95:64];
+      key_reg[3]    <= key[127:96];
       g_enable      <= 0;
       key_transform <= 0;
       key_ready     <= 0;
     end
-    s0: 
-    begin
-      key_reg[0]    <= key(31:0);
-      key_reg[1]    <= key(63:32);
-      key_reg[2]    <= key(95:64);
-      key_reg[3]    <= key(127:96);
-      key_transform <= 0;
-      key_ready     <= 1;
-      g_enable      <= 0;
-    end
-    s1:
+    s1_g_function:
     begin
       g_enable      <= 1;
       key_ready     <= 0;
-      key_transform <= key_transform + 1;
-    end 
-    s2:
-    begin
-      g_enable      <= 0;
     end
-    s3:
+    s2_word0_complete:
     begin
       key_reg[0]    <= key_reg[0] ^ g_data;
+      g_enable      <= 0;
+      key_transform <= key_transform + 1;
     end
-    s4:
+    s3_word1_complete:
     begin
-      key_reg[1]    <= key_reg[0] ^ key_reg[1];
+      key_reg[1]    <= key_reg[1] ^ key_reg[0];
     end
-    s5:
+    s4_word2_complete:
     begin
-      key_reg[2]    <= key_reg[2] ^ key_reg[1];
+     key_reg[2]     <= key_reg[2] ^ key_reg[1];
     end
-    s6:
+    s5_word3_complete:
     begin
       key_reg[3]    <= key_reg[3] ^ key_reg[2];
       key_ready     <= 1;
     end
-    s7:
+    s6_wait_for_ack:
     begin
       key_ready     <= 1;
-      g_enable      <= 0;
     end
     default:
     begin
-      key_reg[0]    <= 0;
-      key_reg[1]    <= 0;
-      key_reg[2]    <= 0;
-      key_reg[3]    <= 0;
+      key_reg[0]    <= key[31:0];
+      key_reg[1]    <= key[63:32];
+      key_reg[2]    <= key[95:64];
+      key_reg[3]    <= key[127:96];
       g_enable      <= 0;
       key_transform <= 0;
       key_ready     <= 0;

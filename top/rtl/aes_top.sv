@@ -27,6 +27,7 @@ module aes_top #(
 
 logic [255:0] key_out; // shared for all key sizes
 logic [4:0]   round;
+logic         key_exp_enable;
 
 
 //-----------------------------------------------------------------------------------
@@ -37,12 +38,15 @@ generate
   case (key_size)
     128: begin
         key_exp_128_0 (
-          .clk        (clk), 
-          .reset_n    (reset_n),
-          .enable     (enable),
-          .round      (round),
-          .key        (key[127:0]),
-          .key_out    (key_out[127:0])
+          .clk            (clk), 
+          .reset_n        (reset_n),
+          .enable         (key_exp_enable),
+          .key_ack        (),
+          .key            (key[127:0]),
+          .key_ready      (),
+          .key_transform   (),
+          .key_out        (key_out[127:0]),
+          .o_state_error  ()
         );
       end 
     192:
