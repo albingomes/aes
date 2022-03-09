@@ -31,15 +31,15 @@ logic       [3:0][31:0] key_reg; // 4 array elements of 32 bits each, holds key 
 logic                   g_enable;
 logic                   g_done;
 logic       [31:0]      g_data;
-logic       [3:0]       present_state, next_state;
+logic       [6:0]       present_state, next_state;
 // FSM encoding: hard encoded
-localparam   s0_key_load        = 4'b0000001;
-localparam   s1_g_function      = 4'b0000010;
-localparam   s2_word0_complete  = 4'b0000100;
-localparam   s3_word1_complete  = 4'b0001000;
-localparam   s4_word2_complete  = 4'b0010000;
-localparam   s5_word3_complete  = 4'b0100000;
-localparam   s6_wait_for_ack    = 4'b1000000;
+localparam   s0_key_load        = 7'b0000001;
+localparam   s1_g_function      = 7'b0000010;
+localparam   s2_word0_complete  = 7'b0000100;
+localparam   s3_word1_complete  = 7'b0001000;
+localparam   s4_word2_complete  = 7'b0010000;
+localparam   s5_word3_complete  = 7'b0100000;
+localparam   s6_wait_for_ack    = 7'b1000000;
 
 //-----------------------------------------------------------------------------------
 // Instantiations
@@ -50,7 +50,8 @@ g_function g_function_0(
   .reset_n  (reset_n),
   .enable   (g_enable),
   .data_in  (key_reg[3]),
-  .data_out (g_data)
+  .data_out (g_data),
+  .done     (g_done)
 );
 
 //-----------------------------------------------------------------------------------
@@ -73,13 +74,9 @@ assign o_state_error = state_error;
 //--------------
 // Enable edge detect
 //--------------
+
 always_ff@(posedge clk, negedge reset_n) begin
-  if(reset_n == 0) begin
-    enable_reg <= 0;
-  end
-  else begin
-    enable_reg <= enable;
-  end
+  enable_reg <= (reset_n == 0) ? 0:enable;
 end
 
 //--------------
@@ -91,21 +88,11 @@ always_comb begin
   case(present_state)
     s0_key_load:
     begin
-      if(enable == 1 && enable_reg == 0) begin
-        next_state = s1_g_function;
-      end
-      else begin
-        next_state = s0_key_load;
-      end
+      next_state = (enable == 1 && enable_reg == 0) ? s1_g_function:s0_key_load;
     end 
     s1_g_function:
-    begin
-      if(g_done == 1) begin
-        next_state = s2_word0_complete;
-      end
-      else begin
-        next_state = s1_g_function;
-      end 
+    begin 
+      next_state = (g_done == 1) ? s2_word0_complete:s1_g_function;
     end
     s2_word0_complete:
     begin
@@ -126,12 +113,7 @@ always_comb begin
     s6_wait_for_ack:
     begin
       if (key_ack == 1) begin
-        if(key_transform == 10) begin
-          next_state = s0_key_load;
-        end
-        else begin
-          next_state = s1_g_function;
-        end  
+        next_state = (key_transform == 10) ? s0_key_load:s1_g_function;
       end
       else begin
         next_state = s6_wait_for_ack;
