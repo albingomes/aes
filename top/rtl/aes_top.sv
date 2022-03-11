@@ -46,7 +46,8 @@ generate
           .key_ready      (),
           .key_transform   (),
           .key_out        (key_out[127:0]),
-          .o_state_error  ()
+          .o_state_error  (),
+          .g_state_error  ()
         );
       end 
     192:

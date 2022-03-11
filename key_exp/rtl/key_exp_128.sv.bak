@@ -19,7 +19,8 @@ module key_exp_top (
   output            key_ready,     // '1' when key is ready 
   output  [3:0]     key_transform, // indicating round #
   output  [127:0]   key_out,
-  output            o_state_error  // FSM error detection
+  output            o_state_error,  // FSM error detection
+  output            g_state_error   // g_function state machine error
 );
 
 //-----------------------------------------------------------------------------------
@@ -32,26 +33,30 @@ logic                   g_enable;
 logic                   g_done;
 logic       [31:0]      g_data;
 logic       [6:0]       present_state, next_state;
+logic                   state_error;
+logic                   g_state_error;
 // FSM encoding: hard encoded
-localparam   s0_key_load        = 4'b0000001;
-localparam   s1_g_function      = 4'b0000010;
-localparam   s2_word0_complete  = 4'b0000100;
-localparam   s3_word1_complete  = 4'b0001000;
-localparam   s4_word2_complete  = 4'b0010000;
-localparam   s5_word3_complete  = 4'b0100000;
-localparam   s6_wait_for_ack    = 4'b1000000;
+localparam   s0_key_load        = 7'b0000001;
+localparam   s1_g_function      = 7'b0000010;
+localparam   s2_word0_complete  = 7'b0000100;
+localparam   s3_word1_complete  = 7'b0001000;
+localparam   s4_word2_complete  = 7'b0010000;
+localparam   s5_word3_complete  = 7'b0100000;
+localparam   s6_wait_for_ack    = 7'b1000000;
 
 //-----------------------------------------------------------------------------------
 // Instantiations
 //-----------------------------------------------------------------------------------
 
 g_function g_function_0(
-  .clk      (clk),
-  .reset_n  (reset_n),
-  .enable   (g_enable),
-  .data_in  (key_reg[3]),
-  .data_out (g_data),
-  .done     (g_done)
+  .clk            (clk),
+  .reset_n        (reset_n),
+  .enable         (g_enable),
+  .key_transform  (key_transform),
+  .data_in        (key_reg[3]),
+  .data_out       (g_data),
+  .done           (g_done),
+  .o_state_error  (g_state_error)
 );
 
 //-----------------------------------------------------------------------------------

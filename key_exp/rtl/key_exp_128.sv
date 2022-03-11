@@ -19,7 +19,8 @@ module key_exp_top (
   output            key_ready,     // '1' when key is ready 
   output  [3:0]     key_transform, // indicating round #
   output  [127:0]   key_out,
-  output            o_state_error  // FSM error detection
+  output            o_state_error,  // FSM error detection
+  output            g_state_error   // g_function state machine error detection
 );
 
 //-----------------------------------------------------------------------------------
@@ -32,6 +33,8 @@ logic                   g_enable;
 logic                   g_done;
 logic       [31:0]      g_data;
 logic       [6:0]       present_state, next_state;
+logic                   state_error;
+logic                   g_state_error;
 // FSM encoding: hard encoded
 localparam   s0_key_load        = 7'b0000001;
 localparam   s1_g_function      = 7'b0000010;
@@ -46,12 +49,14 @@ localparam   s6_wait_for_ack    = 7'b1000000;
 //-----------------------------------------------------------------------------------
 
 g_function g_function_0(
-  .clk      (clk),
-  .reset_n  (reset_n),
-  .enable   (g_enable),
-  .data_in  (key_reg[3]),
-  .data_out (g_data),
-  .done     (g_done)
+  .clk            (clk),
+  .reset_n        (reset_n),
+  .enable         (g_enable),
+  .key_transform  (key_transform),
+  .data_in        (key_reg[3]),
+  .data_out       (g_data),
+  .done           (g_done),
+  .o_state_error  (g_state_error)
 );
 
 //-----------------------------------------------------------------------------------
