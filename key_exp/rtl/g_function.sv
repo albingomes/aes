@@ -179,7 +179,7 @@ always_ff(posedge clk, negedge reset_n) begin
       s2_round_cooeff:
       begin
         s_box_enable  <= 0;
-        data_reg[0]   <= data_reg[0] ^ RC[transform];
+        data_reg[0]   <= data_reg[0] ^ RC[key_transform];
         done          <= 1;
       end
       default:
